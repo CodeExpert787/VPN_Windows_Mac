@@ -6,7 +6,7 @@ export interface Server {
   country: string;
   code: string;      // ISO-2 country code
   city: string;
-  latencyMs: number;
+  ip: string;
   favorite?: boolean;
 }
 

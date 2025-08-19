@@ -28,6 +28,16 @@ export default function App() {
     }
   }, []);
 
+  // Initialize login state from localStorage (persist session)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('loggedIn');
+      if (stored === 'true') {
+        setLoggedIn(true);
+      }
+    } catch {}
+  }, []);
+
   // Update window title based on current view
   useEffect(() => {
     if (isTauri && loggedIn) {
@@ -84,6 +94,9 @@ export default function App() {
     setLoggedIn(false);
     setSelectedServer(null);
     setView('dashboard');
+    try {
+      localStorage.setItem('loggedIn', 'false');
+    } catch {}
   };
 
   return (

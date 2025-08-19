@@ -33,7 +33,7 @@ export default function ServerList({ onClose, onSelect }: ServerListProps) {
 
   const groupedServers = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = SERVERS.slice().sort((a, b) => a.latencyMs - b.latencyMs);
+    const base = SERVERS.slice().sort((a, b) => a.ip.localeCompare(b.ip));
     const filtered = q
       ? base.filter(
           (s) =>
@@ -56,7 +56,7 @@ export default function ServerList({ onClose, onSelect }: ServerListProps) {
       const favA = serversA.some(s => favorites[s.id]);
       const favB = serversB.some(s => favorites[s.id]);
       if (favA !== favB) return favB ? 1 : -1;
-      return Math.min(...serversA.map(s => s.latencyMs)) - Math.min(...serversB.map(s => s.latencyMs));
+      return Math.min(...serversA.map(s => s.ip.localeCompare(s.ip))) - Math.min(...serversB.map(s => s.ip.localeCompare(s.ip)));
     });
   }, [search, favorites]);
 
@@ -137,7 +137,7 @@ export default function ServerList({ onClose, onSelect }: ServerListProps) {
                                 >
                                   <div>
                                     <div className="text-white font-medium leading-tight text-sm">{server.city}</div>
-                                    <div className={`text-xs ${latencyColor(server.latencyMs)}`}>{server.latencyMs} ms</div>
+                                    <div className={`text-xs ${latencyColor(server.ip.localeCompare(server.ip))}`}>{server.ip}</div>
                                   </div>
                                 </div>
 
@@ -175,7 +175,7 @@ export default function ServerList({ onClose, onSelect }: ServerListProps) {
                             />
                             <div>
                               <div className="text-white font-medium leading-tight text-sm">{server.country} • {server.city}</div>
-                              <div className={`text-xs ${latencyColor(server.latencyMs)}`}>{server.latencyMs} ms</div>
+                              <div className={`text-xs ${latencyColor(server.ip.localeCompare(server.ip))}`}>{server.ip}</div>
                             </div>
                           </div>
 

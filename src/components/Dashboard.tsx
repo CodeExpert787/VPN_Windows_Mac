@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PowerIcon, ChevronRightIcon, EllipsisVerticalIcon, ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
 import logo from "../assets/logo.png";
 import type { Server } from "../types";
@@ -16,14 +16,26 @@ export default function Dashboard({ onOpenServerList, onOpenSettings, onOpenVPNP
   const [connected, setConnected] = useState(false);
   const [expanded] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
-
+  const [realIp, setRealIp] = useState("123.45.67.89"); 
+  const [vpnIp, setVpnIp] = useState("10.24.6.12");
   const [showDropdown, setShowDropdown] = useState(false);
-  const vpnIp = "10.24.6.12";
-  const realIp = "123.45.67.89";
+
+  useEffect(() => {
+    const fetchRealIp = async () => {
+      const resp = await fetch("https://api.ipify.org?format=json");
+      const data = await resp.json();
+      setRealIp(data.ip);
+      setVpnIp(data.ip);
+    };
+    fetchRealIp();
+  }, []);
+
 
   const toggleConnect = () => {
     if (disabled) return;
-    if (snoozed) setSnoozed(false);
+    if(connected){
+      
+    }
     setConnected((c) => !c);
   };
 
@@ -90,14 +102,7 @@ export default function Dashboard({ onOpenServerList, onOpenSettings, onOpenVPNP
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-bold text-white mb-2">VPN Status</h2>
-                <p className={`text-lg font-semibold ${
-                  connected && !snoozed ? "text-green-400" : "text-yellow-300"
-                }`}>
-                  {connected && !snoozed ? "Connected" : "Disconnected"}
-                </p>
-                {snoozed && (
-                  <p className="text-sm text-gray-400 mt-1">Snoozed for 5 minutes</p>
-                )}
+                
               </div>
 
               {/* Connection button */}
@@ -117,7 +122,11 @@ export default function Dashboard({ onOpenServerList, onOpenSettings, onOpenVPNP
                   }`} />
                 </div>
               </div>
-
+              <p className={`text-lg font-semibold ${
+                  connected ? "text-green-400" : "text-yellow-300"
+                }`}>
+                  {connected  ? "Connected" : "Disconnected"}
+                </p>
               {/* VPN Page Button */}
             
             </div>
@@ -140,7 +149,7 @@ export default function Dashboard({ onOpenServerList, onOpenSettings, onOpenVPNP
                     </p>
                     {selectedServer && (
                       <p className="text-xs text-gray-400 mt-1">
-                        Latency: {selectedServer.latencyMs}ms
+                        IP: {selectedServer.ip}
                       </p>
                     )}
                   </div>
@@ -156,7 +165,7 @@ export default function Dashboard({ onOpenServerList, onOpenSettings, onOpenVPNP
                 </div>
                 <div>
                   <p className="text-sm text-gray-400 mb-1">VPN IP</p>
-                  <p className="font-mono text-white">{connected && !snoozed ? vpnIp : "—"}</p>
+                  <p className="font-mono text-white">{connected ? vpnIp : "—"}</p>
                 </div>
               </div>
 
