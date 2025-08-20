@@ -7,6 +7,7 @@ export interface Server {
   code: string;      // ISO-2 country code
   city: string;
   ip: string;
+  ip_config: string;
   favorite?: boolean;
 }
 

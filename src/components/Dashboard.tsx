@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import { PowerIcon, ChevronRightIcon, EllipsisVerticalIcon, ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
+import {
+  PowerIcon,
+  ChevronRightIcon,
+  EllipsisVerticalIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+} from "@heroicons/react/24/solid";
 import logo from "../assets/logo.png";
 import type { Server } from "../types";
+import { invoke } from "@tauri-apps/api/core";
 
 interface DashboardProps {
   onOpenServerList: () => void;
@@ -12,177 +19,241 @@ interface DashboardProps {
   selectedServer?: Server | null;
 }
 
-export default function Dashboard({ onOpenServerList, onOpenSettings, onOpenVPNPage, disabled = false, onLogout, selectedServer }: DashboardProps) {
+export default function Dashboard({
+  onOpenServerList,
+  onOpenSettings,
+  onOpenVPNPage,
+  disabled = false,
+  onLogout,
+  selectedServer,
+}: DashboardProps) {
   const [connected, setConnected] = useState(false);
-  const [expanded] = useState(false);
-  const [snoozed, setSnoozed] = useState(false);
-  const [realIp, setRealIp] = useState("123.45.67.89"); 
-  const [vpnIp, setVpnIp] = useState("10.24.6.12");
+  const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  const [realIp, setRealIp] = useState<string>("—");
+  const [vpnIp, setVpnIp] = useState<string>("");
+
+  // Fetch current public IP on mount & whenever we disconnect
   useEffect(() => {
-    const fetchRealIp = async () => {
-      const resp = await fetch("https://api.ipify.org?format=json");
-      const data = await resp.json();
-      setRealIp(data.ip);
-      setVpnIp(data.ip);
-    };
-    fetchRealIp();
+    (async () => {
+      try {
+        const ip = await invoke<string>("get_public_ip");
+        setRealIp(ip || "—");
+      } catch {
+        setRealIp("—");
+      }
+    })();
   }, []);
 
-
-  const toggleConnect = () => {
-    if (disabled) return;
-    if(connected){
-      
+  const toggleConnect = async () => {
+    if (disabled || busy) return;
+    setBusy(true);
+    try {
+      if (!connected) {
+        // Connect (enable system proxy using selected server)
+        const host = selectedServer?.ip;
+        const port = selectedServer && (selectedServer as any).port ? (selectedServer as any).port as number : 8080; // adjust as needed
+        if (!host) {
+          alert("Please select a server first.");
+          return;
+        }
+        await invoke("enable_proxy", { args: { host, port } });
+        // confirm changed IP
+        const ip = await invoke<string>("get_public_ip");
+        setVpnIp(ip || "");
+        setConnected(true);
+      } else {
+        // Disconnect (disable system proxy)
+        await invoke("disable_proxy");
+        const ip = await invoke<string>("get_public_ip");
+        setRealIp(ip || "—");
+        setVpnIp("");
+        setConnected(false);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to toggle proxy. Check logs/console for details.");
+    } finally {
+      setBusy(false);
     }
-    setConnected((c) => !c);
   };
 
   return (
-    <div className="w-full h-full flex bg-gray-900">
-      {/* Main dashboard container with frosted-glass effect */}
-      <div className="w-full h-full flex items-center justify-center p-6">
-        <div className="w-full max-w-4xl bg-gray-900/40 backdrop-blur-md  p-6">
-          {/* Header with logo and menu */}
-          <div className="flex items-center justify-between mb-28 relative">
-            {/* Centered logo and title */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-3">
-              <img src={logo} alt="logo" className="w-10 h-10" />
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">EnterVPN</h1>
-            </div>
-            
-            {/* Right-aligned menu button */}
-            <div className="ml-auto">
-              <div className="relative">
-                <button 
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="p-2 hover:bg-gray-800/60 rounded-lg transition-colors"
+    <div className="h-full w-full bg-gradient-to-b from-gray-950 to-gray-900 text-white">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="Logo" className="h-7 w-7" />
+          <span className="text-sm text-white/80">Dashboard</span>
+        </div>
+
+        <div className="relative">
+          <button
+            className={`p-2 rounded-xl hover:bg-white/10 transition ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+            onClick={() => setShowDropdown(!showDropdown)}
+          >
+            <EllipsisVerticalIcon className="h-6 w-6 text-white/70" />
+          </button>
+
+          {showDropdown && (
+            <div className="absolute right-0 mt-2 w-48 bg-gray-800/90 backdrop-blur rounded-xl shadow-xl border border-white/10 overflow-hidden z-20">
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-white/10 text-sm"
+                onClick={() => {
+                  setShowDropdown(false);
+                  onOpenSettings();
+                }}
+              >
+                Settings
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-white/10 text-sm"
+                onClick={() => {
+                  setShowDropdown(false);
+                  onOpenServerList();
+                }}
+              >
+                Choose Server
+              </button>
+              {onLogout && (
+                <button
+                  className="w-full text-left px-4 py-2 hover:bg-white/10 text-sm text-red-300"
+                  onClick={() => {
+                    setShowDropdown(false);
+                    onLogout();
+                  }}
                 >
-                  <EllipsisVerticalIcon className="h-5 w-5 text-gray-200" />
+                  Logout
                 </button>
-
-                {showDropdown && (
-                  <div className="absolute right-0 top-full mt-2 bg-gray-800/90 backdrop-blur-md rounded-xl shadow-xl border border-white/10 min-w-[140px] z-10">
-                    <div
-                      onClick={() => {
-                        onOpenSettings();
-                        setShowDropdown(false);
-                      }}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-700/60 rounded-t-xl text-sm text-gray-200 cursor-pointer transition-colors"
-                    >
-                      Settings
-                    </div>
-                    <div
-                      onClick={() => {
-                        setShowDropdown(false);
-                        if (onLogout) onLogout();
-                      }}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-700/60 text-sm text-gray-200 cursor-pointer transition-colors"
-                    >
-                      Logout
-                    </div>
-                    <div
-                      onClick={() => {
-                        setShowDropdown(false);
-                      }}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-700/60 rounded-b-xl text-sm text-gray-200 cursor-pointer transition-colors"
-                    >
-                      Quit
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
 
-          {/* Main content area - side by side layout */}
-          <div className="flex gap-8">
-            {/* Left side - Main VPN control section */}
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">VPN Status</h2>
-                
-              </div>
-
-              {/* Connection button */}
-              <div 
-                className={`rounded-full border-4 shadow-2xl transition-all duration-300 ${
-                  disabled ? 'opacity-50 pointer-events-none' : 'hover:scale-105 cursor-pointer'
-                }`} 
-                onClick={toggleConnect}
-              >
-                <div className={`rounded-full p-6 border-4 shadow-lg transition-all ${
-                  connected && !snoozed 
-                    ? "border-green-500 bg-green-500/20" 
-                    : "border-yellow-400 bg-yellow-400/20"
-                }`}>
-                  <PowerIcon className={`h-20 w-20 transition-colors ${
-                    connected && !snoozed ? "text-green-400" : "text-yellow-300"
-                  }`} />
-                </div>
-              </div>
-              <p className={`text-lg font-semibold ${
-                  connected ? "text-green-400" : "text-yellow-300"
-                }`}>
-                  {connected  ? "Connected" : "Disconnected"}
-                </p>
-              {/* VPN Page Button */}
-            
+      {/* Content */}
+      <div className="px-8 py-8">
+        {/* Main content area - side by side layout */}
+        <div className="flex gap-8">
+          {/* Left - Main control */}
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-white mb-2">VPN Status</h2>
             </div>
 
-            {/* Right side - Server info, IP addresses, and other details */}
-            <div className="flex-1 space-y-4">
-              {/* Server selection */}
-              <div 
-                className={`flex items-center justify-between p-4 rounded-xl transition-all ${
-                  disabled ? 'opacity-50 pointer-events-none' : 'hover:bg-gray-800/60 cursor-pointer'
-                }`} 
-                onClick={onOpenServerList}
+            {/* Connection button */}
+            <div
+              className={`rounded-full border-4 shadow-2xl transition-all duration-300 ${
+                disabled || busy ? "opacity-50 pointer-events-none" : "hover:scale-105 cursor-pointer"
+              }`}
+              onClick={toggleConnect}
+            >
+              <div
+                className={`rounded-full p-6 border-4 shadow-lg transition-all ${
+                  connected ? "border-green-500/70" : "border-gray-600/70"
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <div>
-                    <p className="text-sm text-gray-400">VPN Server</p>
-                    <p className="text-white font-medium">
-                      {selectedServer ? `${selectedServer.city}, ${selectedServer.country}` : "Select Server"}
-                    </p>
-                    {selectedServer && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        IP: {selectedServer.ip}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                <PowerIcon
+                  className={`h-20 w-20 transition-colors ${
+                    connected ? "text-green-400" : "text-gray-400"
+                  }`}
+                />
               </div>
+            </div>
 
-              {/* IP addresses */}
-              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-gray-800/40">
+            <p className="text-lg font-semibold mt-4">
+              {connected ? (busy ? "Connecting..." : "Connected") : busy ? "Disconnecting..." : "Disconnected"}
+            </p>
+
+            {/* Selected server */}
+            <div
+              className={`mt-8 w-full max-w-md p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between ${
+                disabled ? "opacity-50 pointer-events-none" : "hover:bg-white/10"
+              }`}
+              onClick={onOpenServerList}
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gray-800/50 border border-white/10 flex items-center justify-center">
+                  <span className="text-xs text-white/70">SVR</span>
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    {selectedServer ? `${selectedServer.city}, ${selectedServer.country}` : "Select Server"}
+                  </p>
+                  {selectedServer && (
+                    <p className="text-xs text-gray-400 mt-1">IP: {selectedServer.ip}</p>
+                  )}
+                </div>
+              </div>
+              <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+            </div>
+
+            {/* IP addresses */}
+            <div className="mt-6 w-full max-w-md p-4 bg-white/5 rounded-2xl border border-white/10">
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-400 mb-1">Real IP</p>
                   <p className="font-mono text-white">{realIp}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400 mb-1">VPN IP</p>
-                  <p className="font-mono text-white">{connected ? vpnIp : "—"}</p>
+                  <p className="font-mono text-white">{connected ? vpnIp || "…" : "—"}</p>
                 </div>
               </div>
+            </div>
 
-              {/* Expandable section */}
-              <div className={`flex justify-center transition-all ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+            {/* Expandable section */}
+            <div className={`flex justify-center mt-4 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+              <button
+                onClick={onOpenVPNPage}
+                className="p-2 hover:bg-gray-800/60 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <span className="text-sm text-gray-300">Details</span>
+                {expanded ? (
+                  <ChevronUpIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Right - Placeholder side panel (you can keep your existing content) */}
+          <div className="w-[360px] space-y-4">
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+              <p className="text-sm text-white/80">Quick Actions</p>
+              <div className="mt-3 flex gap-2">
                 <button
-                  onClick={onOpenVPNPage}
-                  className="p-2 hover:bg-gray-800/60 rounded-lg transition-colors"
+                  className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-sm"
+                  onClick={onOpenSettings}
                 >
-                  {expanded ? (
-                    <ChevronUpIcon className="h-6 w-6 text-gray-400" />
-                  ) : (
-                    <ChevronDownIcon className="h-6 w-6 text-gray-400" />
-                  )}
+                  Settings
+                </button>
+                <button
+                  className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-sm"
+                  onClick={onOpenServerList}
+                >
+                  Servers
                 </button>
               </div>
             </div>
+
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+              <p className="text-sm text-white/80">Status</p>
+              <div className="mt-3 text-sm text-white/70">
+                <div className="flex justify-between">
+                  <span>State</span>
+                  <span>{connected ? "Connected" : "Disconnected"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Busy</span>
+                  <span>{busy ? "Yes" : "No"}</span>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

@@ -1,19 +1,19 @@
 import type { Server } from "../types";
 
 const DEFAULT_SERVERS: Server[] = [
-  { id: "us-ny", country: "United States", code: "US", city: "New York", ip: "38" },
-  { id: "us-la", country: "United States", code: "US", city: "Los Angeles", ip: "72" },
-  { id: "us-chi", country: "United States", code: "US", city: "Chicago", ip: "45" },
-  { id: "us-mia", country: "United States", code: "US", city: "Miami", ip: "28" },
-  { id: "us-sea", country: "United States", code: "US", city: "Seattle", ip: "89" },
-  { id: "de-fra", country: "Germany", code: "DE", city: "Frankfurt", ip: "58" },
-  { id: "de-ber", country: "Germany", code: "DE", city: "Berlin", ip: "62" },
-  { id: "de-mun", country: "Germany", code: "DE", city: "Munich", ip: "65" },
-  { id: "gb-lon", country: "United Kingdom", code: "GB", city: "London", ip: "49" },
-  { id: "gb-man", country: "United Kingdom", code: "GB", city: "Manchester", ip: "52" },
-  { id: "jp-tyo", country: "Japan", code: "JP", city: "Tokyo", ip: "121" },
-  { id: "jp-osk", country: "Japan", code: "JP", city: "Osaka", ip: "125" },
-  { id: "gr-ath", country: "Greece", code: "GR", city: "Athens", ip: "35" },
+  { id: "us-ny", country: "United States", code: "US", city: "New York", ip: "38", ip_config:"" },
+  { id: "us-la", country: "United States", code: "US", city: "Los Angeles", ip: "72", ip_config:"" },
+  { id: "us-chi", country: "United States", code: "US", city: "Chicago", ip: "45" , ip_config:""},
+  { id: "us-mia", country: "United States", code: "US", city: "Miami", ip: "28" , ip_config:""},
+  { id: "us-sea", country: "United States", code: "US", city: "Seattle", ip: "89" , ip_config:""},
+  { id: "de-fra", country: "Germany", code: "DE", city: "Frankfurt", ip: "58" , ip_config:""},
+  { id: "de-ber", country: "Germany", code: "DE", city: "Berlin", ip: "62" , ip_config:""},
+  { id: "de-mun", country: "Germany", code: "DE", city: "Munich", ip: "65" , ip_config:""},
+  { id: "gb-lon", country: "United Kingdom", code: "GB", city: "London", ip: "49" , ip_config:""},
+  { id: "gb-man", country: "United Kingdom", code: "GB", city: "Manchester", ip: "52", ip_config:"" },
+  { id: "jp-tyo", country: "Japan", code: "JP", city: "Tokyo", ip: "121" , ip_config:""},
+  { id: "jp-osk", country: "Japan", code: "JP", city: "Osaka", ip: "125" , ip_config:""},
+  { id: "gr-ath", country: "Greece", code: "GR", city: "Athens", ip: "35", ip_config:"" },
 ];
 
 function safeParse<T = unknown>(value: string | null): T | null {
@@ -42,6 +42,7 @@ function mapUnknownArrayToServers(arr: any[]): Server[] | null {
       const city: string = item.server_city || item.location || item.l || "";
       const code = (country || "").toString().slice(0, 2).toUpperCase();
       const ip = item.ip;
+      const ip_config = item.ip_config;
       if (!country || !city || !code) return null;
       return {
         id: item.id || toId(code, city) || `srv-${index}`,
@@ -49,6 +50,7 @@ function mapUnknownArrayToServers(arr: any[]): Server[] | null {
         code,
         city,
         ip: ip,
+        ip_config: ip_config,
       } as Server;
     }).filter(Boolean) as Server[];
     return mapped.length ? mapped : null;
